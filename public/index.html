@@ -739,11 +739,6 @@ body.auth-gate .login-wrap {
                 </div>
               </div>
 
-              <div class="field">
-                <label for="loginStudentPassword">Password</label>
-                <input id="loginStudentPassword" type="password" name="password" placeholder="Enter password (default: annauniv123 or choose your own)" required autocomplete="current-password">
-              </div>
-
               <button type="submit" class="btn" style="width:100%;margin-top:14px;padding:12px;justify-content:center;font-size:13px" id="btnStudentSubmit">
                 Sign In to ClockIt Workspace →
               </button>
@@ -948,7 +943,26 @@ async function apiFetch(endpoint, options = {}) {
     const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    const res = await fetch(`/api/academic${endpoint}`, { ...options, headers });
+    let res = await fetch(`/api/academic${endpoint}`, { ...options, headers });
+    // Resilient fallback for serverless hosting rewrites
+    if (res.status === 404) {
+      const altRes = await fetch(`/academic${endpoint}`, { ...options, headers });
+      if (altRes.ok) res = altRes;
+      else {
+        const altRes2 = await fetch(`/api${endpoint}`, { ...options, headers });
+        if (altRes2.ok) res = altRes2;
+      }
+    }
+
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      const text = await res.text().catch(() => '');
+      if (text.startsWith('{')) {
+        try { return JSON.parse(text); } catch (e) {}
+      }
+      return { success: false, error: `Server returned HTTP ${res.status} non-JSON response.` };
+    }
+
     const data = await res.json().catch(() => null);
     if (!res.ok) {
       return data || { success: false, error: `HTTP error ${res.status}` };
@@ -1998,11 +2012,10 @@ if (studentForm) {
     const rollNo = ($('#loginStudentRoll')?.value || '').trim();
     const semester = $('#loginStudentSemester')?.value || '3';
     const department = $('#loginStudentDept')?.value || 'Computer Technology';
-    const password = $('#loginStudentPassword')?.value || '';
     const submitBtn = $('#btnStudentSubmit');
 
-    if (!name || !rollNo || !password) {
-      toast('Please enter your Name, Roll Number, and Password.');
+    if (!name || !rollNo) {
+      toast('Please enter your Full Name and Roll Number.');
       return;
     }
 
@@ -2012,7 +2025,7 @@ if (studentForm) {
 
     const res = await apiFetch('/auth/verify-and-login', {
       method: 'POST',
-      body: JSON.stringify({ name, rollNo, semester, department, password, role: 'student' })
+      body: JSON.stringify({ name, rollNo, semester, department, role: 'student' })
     });
 
     submitBtn.disabled = false;
@@ -2027,7 +2040,7 @@ if (studentForm) {
       toast(`Welcome, ${currentUser.name}!`);
       go('dashboard');
     } else {
-      const errMsg = (res && res.error) ? res.error : 'Authentication failed. Please check your credentials.';
+      const errMsg = (res && res.error) ? res.error : 'Sign in failed. Please try again.';
       toast(errMsg);
     }
   };

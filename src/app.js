@@ -44,7 +44,11 @@ app.use(express.static(config.PUBLIC_DIR));
 // Serve uploaded user files securely
 app.use('/uploads', express.static(config.UPLOAD_DIR));
 
-// Mount REST API (support both /api prefix and root-level API calls)
+const academicRoutes = require('./routes/academicRoutes');
+
+// Mount REST API (support all prefix variations across local & serverless cloud environments)
+app.use('/api/academic', academicRoutes);
+app.use('/academic', academicRoutes);
 app.use('/api', apiRoutes);
 app.use(apiRoutes);
 

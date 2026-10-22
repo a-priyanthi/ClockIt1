@@ -22,10 +22,21 @@ function ensureInitialized() {
 }
 
 function normalizeRequestUrl(req) {
+  // If req.url already has the subpath (e.g. /api/academic/...), nothing to rewrite
+  if (req.url && req.url.startsWith('/api/') && !req.url.startsWith('/api?') && !req.url.startsWith('/api/index.js')) {
+    return;
+  }
+
   let targetPath = null;
 
-  // 1. Check if rewrite added ?path=... or &path=...
-  if (req.url && (req.url.includes('path=') || req.url.includes('?path='))) {
+  // 1. Check if req.query has catch-all path or slug parameter
+  if (req.query && (req.query.path || req.query.slug)) {
+    const raw = req.query.path || req.query.slug;
+    targetPath = Array.isArray(raw) ? raw.join('/') : raw;
+  }
+
+  // 2. Check if rewrite added ?path=... or &path=...
+  if (!targetPath && req.url && (req.url.includes('path=') || req.url.includes('?path='))) {
     try {
       const u = new URL(req.url, 'http://localhost');
       targetPath = u.searchParams.get('path');
@@ -39,12 +50,17 @@ function normalizeRequestUrl(req) {
     } catch (e) {}
   }
 
-  // 2. Check Vercel routing headers
-  const orig = req.headers['x-matched-path'] || req.headers['x-forwarded-uri'] || req.headers['x-original-url'] || req.headers['x-vercel-matched-path'];
-  if (orig && orig !== '/api' && orig !== '/api/' && orig !== '/api/index.js' && orig.startsWith('/api/')) {
-    const qIdx = req.url.indexOf('?');
-    const qPart = (qIdx !== -1 && !orig.includes('?')) ? req.url.slice(qIdx) : '';
-    req.url = orig + qPart;
+  // 3. Check Vercel routing headers
+  if (!targetPath) {
+    const orig = req.headers['x-matched-path'] || req.headers['x-forwarded-uri'] || req.headers['x-original-url'] || req.headers['x-vercel-matched-path'];
+    if (orig && orig !== '/api' && orig !== '/api/' && orig !== '/api/index.js' && orig.startsWith('/api/')) {
+      targetPath = orig.replace(/^\/api\//, '');
+    }
+  }
+
+  if (targetPath) {
+    const cleanSearch = req.url && req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+    req.url = '/api/' + targetPath.replace(/^\//, '') + cleanSearch;
     req.originalUrl = req.url;
   }
 }
