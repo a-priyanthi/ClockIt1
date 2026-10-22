@@ -6,14 +6,18 @@ const { seedAllMitStudents, seedAllMitStudentsSync } = require('./src/config/see
 const { seedAllMitCurricula, seedAllMitCurriculaSync } = require('./src/config/seed_all_mit_curricula');
 const { extractAllDetailedSyllabi } = require('./src/config/extract_all_detailed_syllabi');
 
-// Initialize database schema and seed defaults synchronously
+// Initialize database schema and seed defaults synchronously from pre-bundled datasets
 initDatabase();
 seedDatabase();
 seedAcademicClock();
 seedAllMitStudentsSync();
 seedAllMitCurriculaSync();
-seedAllMitStudents().catch(e => console.error('[MIT Roster Init Error]:', e.message));
-seedAllMitCurricula().then(() => extractAllDetailedSyllabi()).catch(e => console.error('[MIT Curricula Init Error]:', e.message));
+
+// Optional background syllabus re-extraction only if explicitly requested
+if (process.env.RE_EXTRACT_SYLLABI === 'true') {
+  seedAllMitStudents().catch(e => console.error('[MIT Roster Init Error]:', e.message));
+  seedAllMitCurricula().then(() => extractAllDetailedSyllabi()).catch(e => console.error('[MIT Curricula Init Error]:', e.message));
+}
 
 // Start Express Server
 const server = app.listen(config.PORT, () => {

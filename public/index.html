@@ -692,11 +692,11 @@ body.auth-gate .login-wrap {
         </div>
 
         <div class="login-card">
-          <!-- STUDENT LOGIN & VERIFICATION FORM -->
+          <!-- STUDENT SIGN IN & WORKSPACE SETUP -->
           <div id="studentLoginContainer">
             <h3 style="margin:0 0 4px;font:700 24px Georgia,serif">Student Sign In</h3>
             <p style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:14px">
-              Enter your official name and roll number to verify identity and load your authentic department syllabus.
+              Enter your details to sign in and personalize your academic dashboard, timetable, and syllabus.
             </p>
 
             <form id="studentVerifyLoginForm">
@@ -744,14 +744,7 @@ body.auth-gate .login-wrap {
                 <input id="loginStudentPassword" type="password" name="password" placeholder="Enter password (default: annauniv123 or choose your own)" required autocomplete="current-password">
               </div>
 
-              <div id="liveVerificationBox" class="note blue" style="margin:10px 0;font-size:12px;display:flex;align-items:center;gap:10px">
-                <span id="liveVerificationIcon" style="font-size:16px">🏛️</span>
-                <div id="liveVerificationText" style="flex:1">
-                  Ready to verify identity against official Madras Institute of Technology student rosters.
-                </div>
-              </div>
-
-              <button type="submit" class="btn" style="width:100%;margin-top:8px;padding:12px;justify-content:center;font-size:13px" id="btnStudentSubmit">
+              <button type="submit" class="btn" style="width:100%;margin-top:14px;padding:12px;justify-content:center;font-size:13px" id="btnStudentSubmit">
                 Sign In to ClockIt Workspace →
               </button>
             </form>
@@ -1961,93 +1954,8 @@ $('#saveProfile').onclick = async () => {
 };
 
 // ==========================================
-// 9. AUTH & OFFICIAL MIT STUDENT VERIFICATION
+// 9. AUTHENTICATION & SESSION MANAGEMENT
 // ==========================================
-let liveVerifyTimer = null;
-
-async function checkLiveVerification() {
-  const rollInput = $('#loginStudentRoll');
-  const nameInput = $('#loginStudentName');
-  const box = $('#liveVerificationBox');
-  const icon = $('#liveVerificationIcon');
-  const text = $('#liveVerificationText');
-
-  if (!rollInput || !box || !text) return;
-
-  const rollNo = rollInput.value.trim();
-  const name = nameInput ? nameInput.value.trim() : '';
-
-  if (!rollNo) {
-    box.className = 'note blue';
-    if (icon) icon.textContent = '🏛️';
-    text.innerHTML = 'Ready to verify identity against official Madras Institute of Technology student rosters.';
-    return;
-  }
-
-  box.className = 'note blue';
-  if (icon) icon.textContent = '🔍';
-  text.innerHTML = `Verifying Roll <b>${esc(rollNo)}</b> with official MIT student rosters...`;
-
-  const res = await apiFetch(`/official-students/verify?rollNo=${encodeURIComponent(rollNo)}&name=${encodeURIComponent(name)}`);
-
-  if (!res || !res.found) {
-    box.className = 'note pink';
-    if (icon) icon.textContent = '⛔';
-    if (res && res.error) {
-      text.innerHTML = `Verification notice: ${esc(res.error)}`;
-    } else {
-      text.innerHTML = `Roll number "<b>${esc(rollNo)}</b>" not found in official MIT student registries across all 8 departments.`;
-    }
-    return;
-  }
-
-  const s = res.student;
-  const semSelect = $('#loginStudentSemester');
-  if (semSelect) {
-    semSelect.value = String(s.semester || '3');
-  }
-
-  const deptSelect = $('#loginStudentDept');
-  if (deptSelect && s.department) {
-    deptSelect.value = s.department;
-  }
-
-  if (name) {
-    if (res.nameMatches) {
-      box.className = 'note green';
-      if (icon) icon.textContent = '✓';
-      text.innerHTML = `<b>Identity Verified:</b> ${esc(s.name)} · ${esc(s.department)} · Year ${s.year} (Semester ${s.semester})`;
-    } else {
-      box.className = 'note pink';
-      if (icon) icon.textContent = '⚠️';
-      text.innerHTML = `Name does not match official MIT record for roll <b>${esc(rollNo)}</b> (Expected name matching: <b>${esc(s.name)}</b>).`;
-    }
-  } else {
-    box.className = 'note blue';
-    if (icon) icon.textContent = '🏛️';
-    text.innerHTML = `<b>Student Recognized:</b> ${esc(s.name)} (${esc(s.department)} · Semester ${s.semester}). Enter your name to complete verification.`;
-  }
-}
-
-// Attach live typing listeners
-document.addEventListener('DOMContentLoaded', () => {
-  const rollInput = $('#loginStudentRoll');
-  const nameInput = $('#loginStudentName');
-
-  const triggerLiveCheck = () => {
-    clearTimeout(liveVerifyTimer);
-    liveVerifyTimer = setTimeout(checkLiveVerification, 300);
-  };
-
-  if (rollInput) {
-    rollInput.addEventListener('input', triggerLiveCheck);
-    rollInput.addEventListener('blur', checkLiveVerification);
-  }
-  if (nameInput) {
-    nameInput.addEventListener('input', triggerLiveCheck);
-    nameInput.addEventListener('blur', checkLiveVerification);
-  }
-});
 
 function handleAuthAction() {
   localStorage.removeItem('academic_jwt_token');
@@ -2100,7 +2008,7 @@ if (studentForm) {
 
     const originalText = submitBtn.textContent;
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Verifying identity with official MIT roster...';
+    submitBtn.textContent = 'Signing in to ClockIt...';
 
     const res = await apiFetch('/auth/verify-and-login', {
       method: 'POST',
@@ -2121,14 +2029,6 @@ if (studentForm) {
     } else {
       const errMsg = (res && res.error) ? res.error : 'Authentication failed. Please check your credentials.';
       toast(errMsg);
-      const box = $('#liveVerificationBox');
-      const icon = $('#liveVerificationIcon');
-      const text = $('#liveVerificationText');
-      if (box && text) {
-        box.className = 'note pink';
-        if (icon) icon.textContent = '⛔';
-        text.innerHTML = `<b>Verification Failed:</b> ${esc(errMsg)}`;
-      }
     }
   };
 }
